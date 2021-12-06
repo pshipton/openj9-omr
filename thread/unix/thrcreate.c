@@ -21,6 +21,7 @@
  *******************************************************************************/
 
 #include <pthread.h>
+#include <stdio.h>
 #include "threaddef.h"
 #include "unix/unixthreadattr.h"
 
@@ -49,6 +50,7 @@ osthread_create(struct J9Thread *self, OSTHREAD *handle, const omrthread_attr_t 
 			self->os_errno = (omrthread_os_errno_t)retCode;
 #endif /* J9ZOS390 */
 		}
+		fprintf(stderr, "osthread_create %ld\n", retCode);
 		return J9THREAD_ERR_THREAD_CREATE_FAILED | J9THREAD_ERR_OS_ERRNO_SET;
 	}
 	return J9THREAD_SUCCESS;
