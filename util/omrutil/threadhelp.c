@@ -23,6 +23,7 @@
 #include "omr.h"
 #include "omrutil.h"
 #include "thread_api.h"
+#include <stdio.h>
 
 static intptr_t failedToSetAttr(intptr_t rc);
 
@@ -37,26 +38,31 @@ createThreadWithCategory(omrthread_t *handle, uintptr_t stacksize, uintptr_t pri
 	intptr_t rc = J9THREAD_SUCCESS;
 
 	if (J9THREAD_SUCCESS != omrthread_attr_init(&attr)) {
+		fprintf(stderr, "omrthread_attr_init\n");
 		return J9THREAD_ERR_CANT_ALLOC_CREATE_ATTR;
 	}
 
 	if (failedToSetAttr(omrthread_attr_set_schedpolicy(&attr, J9THREAD_SCHEDPOLICY_OTHER))) {
+		fprintf(stderr, "omrthread_attr_set_schedpolicy\n");
 		rc = J9THREAD_ERR_INVALID_CREATE_ATTR;
 		goto destroy_attr;
 	}
 
 	/* HACK: the priority must be set after the policy because RTJ might override the schedpolicy */
 	if (failedToSetAttr(omrthread_attr_set_priority(&attr, priority))) {
+		fprintf(stderr, "omrthread_attr_set_priority\n");
 		rc = J9THREAD_ERR_INVALID_CREATE_ATTR;
 		goto destroy_attr;
 	}
 
 	if (failedToSetAttr(omrthread_attr_set_stacksize(&attr, stacksize))) {
+		fprintf(stderr, "omrthread_attr_set_stacksize\n");
 		rc = J9THREAD_ERR_INVALID_CREATE_ATTR;
 		goto destroy_attr;
 	}
 
 	if (failedToSetAttr(omrthread_attr_set_category(&attr, category))) {
+		fprintf(stderr, "omrthread_attr_set_category\n");
 		rc = J9THREAD_ERR_INVALID_CREATE_ATTR;
 		goto destroy_attr;
 	}

@@ -37,6 +37,7 @@
 #include <unistd.h>
 #include <setjmp.h>
 #include <errno.h>
+#include <stdio.h>
 #include "omrsignal_context.h"
 
 #if !defined(J9ZOS390)
@@ -1556,6 +1557,7 @@ initializeSignalTools(OMRPortLibrary *portLibrary)
 #if defined(OSX)
 	char semName[31 /* SEM_NAME_LEN */ + 1];
 #endif /* defined(OSX) */
+	intptr_t rc;
 	
 	/* use this to record the end of the list of signal infos */
 	if (omrthread_tls_alloc(&tlsKey)) {
@@ -1621,15 +1623,16 @@ initializeSignalTools(OMRPortLibrary *portLibrary)
 #endif /* !defined(J9ZOS390) */
 
 #if defined(OMR_PORT_ASYNC_HANDLER)
-	if (J9THREAD_SUCCESS != createThreadWithCategory(
+	rc = createThreadWithCategory(
 			&asynchSignalReporterThread,
 			256 * 1024,
 			J9THREAD_PRIORITY_MAX,
 			0,
 			&asynchSignalReporter,
 			NULL,
-			J9THREAD_CATEGORY_SYSTEM_THREAD)
-	) {
+			J9THREAD_CATEGORY_SYSTEM_THREAD);
+	if (J9THREAD_SUCCESS != rc) {
+		fprintf(stderr, "createThreadWithCategory %ld\n", rc);
 		return OMRPORT_ERROR_STARTUP_SIGNAL_TOOLS10;
 	}
 #endif /* defined(OMR_PORT_ASYNC_HANDLER) */
