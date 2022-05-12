@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 1991, 2021 IBM Corp. and others
+ * Copyright (c) 1991, 2022 IBM Corp. and others
  *
  * This program and the accompanying materials are made available under
  * the terms of the Eclipse Public License 2.0 which accompanies this
@@ -65,8 +65,8 @@ OMRZeroMemory(void *ptr, uintptr_t length)
 
 #if defined(AIXPPC) || defined(LINUXPPC)
 	char *addr = static_cast<char*>(ptr);
-	char *limit;
-	uintptr_t localCacheLineSize;
+	char *limit = NULL;
+	uintptr_t localCacheLineSize = 0;
 
 #if defined(LINUXPPC)
 	if (length < 2048) {
@@ -107,7 +107,11 @@ OMRZeroMemory(void *ptr, uintptr_t length)
 	/* dcbz forms a group on POWER4, so there is no reason to unroll */
 	limit = (char *)(((uintptr_t)ptr + length) & ~(localCacheLineSize - 1));
 	for (; addr < limit; addr += localCacheLineSize) {
-		__asm__ __volatile__("dcbz 0,%0" : /* no outputs */ : "r"(addr));
+		__asm__ __volatile__(
+				"dcbz 0, %0"
+				: /* no outputs */
+				: "r"(addr)
+				: /* clobbers */ "memory");
 	}
 
 	/* zero final portion smaller than a cache line */
@@ -148,16 +152,24 @@ getCacheLineSize(void)
 {
 #if defined(AIXPPC) || defined (LINUXPPC)
 	char buf[1024];
-	uintptr_t i, ppcCacheLineSize;
+	uintptr_t i = 0;
+	uintptr_t ppcCacheLineSize = 0;
 
 	/* xlc -O3 inlines/unrolls this memset */
-	memset(buf, 255, 1024);
-	__asm__ __volatile__("dcbz 0,%0" : /* no outputs */ : "r"(&buf[512]));
-	for (i = 0, ppcCacheLineSize = 0; i < 1024; i++) {
-		if (buf[i] == 0) {
-			ppcCacheLineSize++;
+	memset(buf, 255, sizeof(buf));
+
+	__asm__ __volatile__(
+			"dcbz 0, %0"
+			: /* no outputs */
+			: "r"((void *)&buf[512])
+			: /* clobbers */ "memory");
+
+	for (i = 0, ppcCacheLineSize = 0; i < sizeof(buf); ++i) {
+		if (0 == buf[i]) {
+			ppcCacheLineSize += 1;
 		}
 	}
+
 	return ppcCacheLineSize;
 #else
 	return 0;

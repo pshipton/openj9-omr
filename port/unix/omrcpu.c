@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 1991, 2020 IBM Corp. and others
+ * Copyright (c) 1991, 2022 IBM Corp. and others
  *
  * This program and the accompanying materials are made available under
  * the terms of the Eclipse Public License 2.0 which accompanies this
@@ -63,20 +63,21 @@ omrcpu_startup(struct OMRPortLibrary *portLibrary)
 {
 	/* initialize the ppc level 1 cache line size */
 #if defined(RS6000) || defined (LINUXPPC) || defined (PPC)
-	int32_t ppcCacheLineSize;
-
-	int  i;
+	int32_t ppcCacheLineSize = 0;
+	int32_t i = 0;
 	char buf[1024];
-	memset(buf, 255, 1024);
 
-	__asm__(
-		"dcbz 0, %0"
-		: /* no outputs */
-		:"r"((void *) &buf[512]));
+	memset(buf, 255, sizeof(buf));
 
-	for (i = 0, ppcCacheLineSize = 0; i < 1024; i++) {
-		if (buf[i] == 0) {
-			ppcCacheLineSize++;
+	__asm__ __volatile__(
+			"dcbz 0, %0"
+			: /* no outputs */
+			: "r"((void *)&buf[512])
+			: /* clobbers */ "memory");
+
+	for (i = 0, ppcCacheLineSize = 0; i < sizeof(buf); ++i) {
+		if (0 == buf[i]) {
+			ppcCacheLineSize += 1;
 		}
 	}
 
@@ -177,7 +178,3 @@ omrcpu_get_cache_line_size(struct OMRPortLibrary *portLibrary, int32_t *lineSize
 	}
 	return rc;
 }
-
-
-
-
