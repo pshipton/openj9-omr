@@ -688,7 +688,7 @@ Port::omrfile_stat(const char *path, unsigned int flags, struct J9FileStat *buf)
 	/* Detect remote filesystem types */
 	case 0x6969: /* NFS_SUPER_MAGIC */
 	case 0x517B: /* SMB_SUPER_MAGIC */
-	case (__fsword_t)0xFF534D42: /* CIFS_MAGIC_NUMBER */
+	case (unsigned int)0xFF534D42: /* CIFS_MAGIC_NUMBER */
 		buf->isRemote = 1;
 		break;
 	default:
