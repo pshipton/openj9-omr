@@ -49,12 +49,12 @@ getTimebase(void)
 	tsc = __builtin_ppc_get_timebase();
 #else /* GCC < 4.8 or XLC */
 #if defined(OMR_ENV_DATA64)
-#if defined(__xlC__)
+#if defined(__xlC__) 
 	/* PPC64 & XLC */
 	tsc = __mftb();
 #else /* !XLC */
 	/* PPC64 & !XLC */
-	asm volatile("mftb %0" : "=r" (tsc));
+	__asm__ volatile("mftb %0" : "=r" (tsc));
 #endif /* __xlC__ */
 
 #else /* !OMR_ENV_DATA64 */
