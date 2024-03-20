@@ -66,7 +66,7 @@ void TR_CallStackIterator::printStackBacktrace(TR::Compilation *comp)
    do                     \
    {                      \
    /*copy current stack pointer to dst*/ \
-   asm("la %0, 0(r1)" : "=r" (dst)); \
+   asm("la %0, 0(1)" : "=r" (dst)); \
    }                      \
    while (0)
 
