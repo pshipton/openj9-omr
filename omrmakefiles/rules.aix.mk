@@ -29,8 +29,8 @@ endef
 
 ifeq ($(OMR_ENV_DATA64),1)
   GLOBAL_ARFLAGS += -X64
-  GLOBAL_CFLAGS += -s -q64
-  GLOBAL_CXXFLAGS += -s -q64
+  GLOBAL_CFLAGS += -s -m64
+  GLOBAL_CXXFLAGS += -s -m64
   GLOBAL_ASFLAGS += -a64 -many
   GLOBAL_CPPFLAGS += -DPPC64
 else
@@ -40,16 +40,16 @@ else
   GLOBAL_ASFLAGS += -a32 -mppc
 endif
 
-GLOBAL_CFLAGS += -qarch=ppc -qalias=noansi -qxflag=LTOL:LTOL0 -qsuppress=1506-1108
-GLOBAL_CXXFLAGS+=-qlanglvl=extended0x -qarch=ppc -qalias=noansi -qxflag=LTOL:LTOL0 -qsuppress=1506-1108
+GLOBAL_CFLAGS += -qarch=ppc -fno-strict-aliasing
+GLOBAL_CXXFLAGS+=-std=c++11 -qarch=ppc -fno-strict-aliasing
 GLOBAL_CPPFLAGS+=-D_XOPEN_SOURCE_EXTENDED=1 -D_ALL_SOURCE -DRS6000 -DAIXPPC -D_LARGE_FILES
 
 ifeq (,$(findstring xlclang,$(notdir $(CC))))
   # xlc options
-  GLOBAL_CFLAGS+=-q mbcs -qlanglvl=extended -qinfo=pro
+  GLOBAL_CFLAGS+=-q mbcs -std=c89 -qinfo=pro
 else
   # xlclang options
-  GLOBAL_CFLAGS+=-qlanglvl=extended0x -qxlcompatmacros
+  GLOBAL_CFLAGS+=-std=c++11
 endif
 
 ifeq (,$(findstring xlclang++,$(notdir $(CXX))))
@@ -57,7 +57,7 @@ ifeq (,$(findstring xlclang++,$(notdir $(CXX))))
   GLOBAL_CXXFLAGS+=-q mbcs -qinfo=pro
 else
   # xlclang++ options
-  GLOBAL_CXXFLAGS+=-qxlcompatmacros -fno-exceptions
+  GLOBAL_CXXFLAGS+=-fno-exceptions
   ifeq (0,$(OMR_RTTI))
     GLOBAL_CXXFLAGS+=-fno-rtti
   endif
@@ -90,7 +90,7 @@ endif
 ###
 ifneq (,$(findstring executable,$(ARTIFACT_TYPE)))
   ifeq (1,$(OMR_ENV_DATA64))
-    GLOBAL_LDFLAGS+=-q64
+    GLOBAL_LDFLAGS+=-m64
   else
     GLOBAL_LDFLAGS+=-q32
   endif
@@ -175,8 +175,6 @@ endif
 
 ## Warnings as errors
 ifeq ($(OMR_WARNINGS_AS_ERRORS),1)
-  GLOBAL_CFLAGS+=-qhalt=w
-  GLOBAL_CXXFLAGS+=-qhalt=w
 endif
 
 ## Debug Information
