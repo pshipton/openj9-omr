@@ -19,10 +19,6 @@
 # SPDX-License-Identifier: EPL-2.0 OR Apache-2.0 OR GPL-2.0-only WITH Classpath-exception-2.0 OR GPL-2.0-only WITH OpenJDK-assembly-exception-1.0
 #############################################################################
 
-set(OMR_C_WARNINGS_AS_ERROR_FLAG -Werror)
-set(OMR_CXX_WARNINGS_AS_ERROR_FLAG -Werror)
-set(OMR_NASM_WARNINGS_AS_ERROR_FLAG -Werror)
-
 set(OMR_C_ENHANCED_WARNINGS_FLAG -Wall)
 set(OMR_CXX_ENHANCED_WARNINGS_FLAG -Wall)
 set(OMR_NASM_ENHANCED_WARNINGS_FLAG -Wall)
@@ -66,6 +62,19 @@ endif()
 
 if(OMR_HOST_ARCH STREQUAL "s390")
 	list(APPEND OMR_PLATFORM_COMPILE_OPTIONS -march=z9-109)
+endif()
+
+if(OMR_OS_AIX)
+	omr_append_flags(CMAKE_C_FLAGS "-m64")
+	omr_append_flags(CMAKE_CXX_FLAGS "-m64")
+	omr_append_flags(CMAKE_ASM_FLAGS "-m64")
+	omr_append_flags(CMAKE_SHARED_LINKER_FLAGS "-m64")
+
+	if(OMR_ENV_DATA64)
+		set(CMAKE_CXX_ARCHIVE_CREATE "<CMAKE_AR> -X64 cr <TARGET> <LINK_FLAGS> <OBJECTS>")
+		set(CMAKE_C_ARCHIVE_CREATE "<CMAKE_AR> -X64 cr <TARGET> <LINK_FLAGS> <OBJECTS>")
+		set(CMAKE_C_ARCHIVE_FINISH "<CMAKE_RANLIB> -X64 <TARGET>")
+	endif()
 endif()
 
 # Testarossa build variables. Longer term the distinction between TR and the rest
@@ -113,9 +122,11 @@ function(_omr_toolchain_separate_debug_symbols tgt)
 		add_custom_command(
 			TARGET "${tgt}"
 			POST_BUILD
-			COMMAND "${CMAKE_OBJCOPY}" --only-keep-debug "${exe_file}" "${dbg_file}"
-			COMMAND "${CMAKE_OBJCOPY}" --strip-debug "${exe_file}"
-			COMMAND "${CMAKE_OBJCOPY}" --add-gnu-debuglink="${dbg_file}" "${exe_file}"
+			#COMMAND "${CMAKE_OBJCOPY}" --only-keep-debug "${exe_file}" "${dbg_file}"
+			#COMMAND "${CMAKE_OBJCOPY}" --strip-debug "${exe_file}"
+			#COMMAND "${CMAKE_OBJCOPY}" --add-gnu-debuglink="${dbg_file}" "${exe_file}"
+			COMMAND "${CMAKE_COMMAND}" -E copy ${exe_file} ${dbg_file}
+			COMMAND "${CMAKE_STRIP}" -X32_64 ${exe_file}
 		)
 	endif()
 	set_target_properties(${tgt} PROPERTIES OMR_DEBUG_FILE "${dbg_file}")
@@ -140,7 +151,4 @@ function(_omr_toolchain_process_exports TARGET_NAME)
 		"${exp_file}"
 	)
 
-	target_link_libraries(${TARGET_NAME}
-		PRIVATE
-			"-Wl,--version-script,${exp_file}")
 endfunction()
