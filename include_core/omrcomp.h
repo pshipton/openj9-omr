@@ -38,7 +38,7 @@
 
 #include <stdint.h>
 #include "omrcfg.h"
-#if defined(__cplusplus) && (defined(__xlC__) || defined(J9ZOS390))
+#if defined(__cplusplus) && (defined(__xlC__) || defined(J9ZOS390) || defined(__open_xl__))
 #include <builtins.h>
 #endif
 
@@ -237,7 +237,7 @@ typedef double SYS_FLOAT;
  * xlC11 C++ compiler reportedly supports attributes before function names, but we've only tested xlC12.
  * The C compiler doesn't support it.
  */
-#if defined(__cplusplus) && (__xlC__ >= 0xc00)
+#if defined(__cplusplus) && (__xlC__ >= 0xc00)  
 #define VMINLINE_ALWAYS inline __attribute__((always_inline))
 #endif
 #endif /* __xlC__ */
