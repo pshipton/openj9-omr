@@ -497,7 +497,7 @@ TR::DebugCounter *TR::DebugCounterGroup::findCounter(const char *nameChars, int3
    {
    if (nameChars == NULL)
       return NULL;
-   char *name = (char*)alloca(nameLength+1);
+   char *name = (char*)__builtin_alloca(nameLength+1);
    strncpy(name, nameChars, nameLength);
    name[nameLength] = 0;
 
@@ -513,7 +513,7 @@ TR::DebugCounterAggregation *TR::DebugCounterGroup::findAggregation(const char *
    {
    if (nameChars == NULL)
       return NULL;
-   char *name = (char*)alloca(nameLength+1);
+   char *name = (char*)__builtin_alloca(nameLength+1);
    strncpy(name, nameChars, nameLength);
    name[nameLength] = 0;
 
