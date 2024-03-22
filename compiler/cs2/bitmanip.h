@@ -29,7 +29,7 @@
 #ifndef CSBITMANIP_H
 #define CSBITMANIP_H
 
-#if defined(__IBMCPP__) && defined (__PPC__)
+#if (defined(__IBMCPP__) || defined(__open_xl__) && defined(__cplusplus)) && defined (__PPC__)
 // to __cntlz4 and related routines
 # include "builtins.h"
 #endif
