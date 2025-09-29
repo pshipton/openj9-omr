@@ -20,9 +20,12 @@
  * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0 OR GPL-2.0-only WITH Classpath-exception-2.0 OR GPL-2.0-only WITH OpenJDK-assembly-exception-1.0
  *******************************************************************************/
 
-#include "omrport.h"
-#include <unistd.h>
+#include <linux/limits.h>
+#include <string.h>
 #include <sys/ucontext.h>
+#include <unistd.h>
+
+#include "omrport.h"
 #include "omrsignal_context.h"
 
 #define NGPRS 32
@@ -74,6 +77,32 @@ infoForSignal(struct OMRPortLibrary *portLibrary, struct OMRUnixSignalInfo *info
 		*name = "Handler2";
 		*value = &info->handlerAddress2;
 		return OMRPORT_SIG_VALUE_ADDRESS;
+	case OMRPORT_SIG_SIGNAL_PID:
+	case 6:
+		if ((NULL != info) && (NULL != info->sigInfo)) {
+			*name = "Sending Process";
+			*value = &info->sigInfo->si_pid;
+			return OMRPORT_SIG_VALUE_32;
+		}
+		return OMRPORT_SIG_VALUE_UNDEFINED;
+	case OMRPORT_SIG_SIGNAL_PID_NAME:
+	case 7:
+		if ((NULL != info) && (NULL != info->sigInfo)) {
+			char exebuf[32];
+			char linkbuf[PATH_MAX];
+			snprintf(exebuf, sizeof(exebuf), "/proc/%d/exe", info->sigInfo->si_pid);
+			ssize_t rc = readlink(exebuf, linkbuf, sizeof(linkbuf));
+			if ((-1 != rc) && rc < sizeof(linkbuf)) {
+				char *exename = portLibrary->mem_allocate_memory(portLibrary, rc, OMR_GET_CALLSITE(), OMRMEM_CATEGORY_PORT_LIBRARY);
+				if (NULL != exename) {
+					*name = "Sending Process Name";
+					strcpy(exename, linkbuf);
+					*value = exename;
+					return OMRPORT_SIG_VALUE_STRING;
+				}
+			}
+		}
+		return OMRPORT_SIG_VALUE_UNDEFINED;
 	default:
 		return OMRPORT_SIG_VALUE_UNDEFINED;
 	}

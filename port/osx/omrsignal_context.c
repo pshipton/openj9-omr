@@ -84,6 +84,15 @@ infoForSignal(struct OMRPortLibrary *portLibrary, OMRUnixSignalInfo *info, int32
 		*name = "";
 		return OMRPORT_SIG_VALUE_UNDEFINED;
 
+	case OMRPORT_SIG_SIGNAL_PID:
+	case 7:
+		if ((NULL != info) && (NULL != info->sigInfo)) {
+			*name = "Sending Process";
+			*value = &info->sigInfo->si_pid;
+			return OMRPORT_SIG_VALUE_32;
+		}
+		return OMRPORT_SIG_VALUE_UNDEFINED;
+
 	default:
 		*name = "";
 		return OMRPORT_SIG_VALUE_UNDEFINED;

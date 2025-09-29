@@ -22,6 +22,8 @@
 
 #define _GNU_SOURCE
 
+#include <linux/limits.h>
+#include <string.h>
 #include <sys/ucontext.h>
 #include <unistd.h>
 
@@ -101,8 +103,36 @@ infoForSignal(struct OMRPortLibrary *portLibrary, struct OMRUnixSignalInfo *info
 		}
 		break;
 
+	case OMRPORT_SIG_SIGNAL_PID:
+	case 7:
+		if ((NULL != info) && (NULL != info->sigInfo)) {
+			*name = "Sending Process";
+			*value = &info->sigInfo->si_pid;
+			return OMRPORT_SIG_VALUE_32;
+		}
+		break;
+
+	case OMRPORT_SIG_SIGNAL_PID_NAME:
+	case 8:
+		if ((NULL != info) && (NULL != info->sigInfo)) {
+			char exebuf[32];
+			char linkbuf[PATH_MAX];
+			snprintf(exebuf, sizeof(exebuf), "/proc/%d/exe", info->sigInfo->si_pid);
+			ssize_t rc = readlink(exebuf, linkbuf, sizeof(linkbuf));
+			if ((-1 != rc) && rc < sizeof(linkbuf)) {
+				char *exename = portLibrary->mem_allocate_memory(portLibrary, rc, OMR_GET_CALLSITE(), OMRMEM_CATEGORY_PORT_LIBRARY);
+				if (NULL != exename) {
+					*name = "Sending Process Name";
+					strcpy(exename, linkbuf);
+					*value = exename;
+					return OMRPORT_SIG_VALUE_STRING;
+				}
+			}
+		}
+		break;
+
 	// case OMRPORT_SIG_SIGNAL_ADDRESS:
-	// case 7:
+	// case 9:
 	// 	*name = "fault_address";
 	// 	*value = &((struct sigcontext *)&info->platformSignalInfo.context->uc_mcontext)->fault_address;
 	// 	return OMRPORT_SIG_VALUE_ADDRESS;

@@ -39,6 +39,8 @@
 #include <errno.h>
 #include "omrsignal_context.h"
 
+#include <inttypes.h>
+
 #if !defined(J9ZOS390)
 #if defined(J9OS_I5) && defined(J9OS_I5_V5R4)
 #include "semaphore_i5.h"
@@ -78,6 +80,11 @@ typedef void (*unix_sigaction)(int, siginfo_t *, void *);
 
 /* Keep track of signal counts. */
 static volatile uintptr_t signalCounts[ARRAY_SIZE_SIGNALS] = {0};
+#define NUM_SIGNAL_PIDS 3
+static volatile pid_t signalPids[ARRAY_SIZE_SIGNALS][NUM_SIGNAL_PIDS] = {0};
+static volatile uintptr_t signalPidHeads[ARRAY_SIZE_SIGNALS] = {0};
+static volatile uintptr_t signalPidTails[ARRAY_SIZE_SIGNALS] = {0};
+
 
 /* Store the previous signal handlers. We need to restore them during shutdown. */
 static struct {
@@ -253,7 +260,7 @@ static intptr_t addAsyncSignalsToSet(sigset_t *ss);
 #endif /* defined(J9ZOS390) */
 
 #if defined(OMR_PORT_ASYNC_HANDLER)
-static void runHandlers(uint32_t asyncSignalFlag, int unixSignal);
+static void runHandlers(OMRPortLibrary *portLibrary, uint32_t asyncSignalFlag, int unixSignal, OMRUnixSignalInfo *sigInfo);
 static int J9THREAD_PROC asynchSignalReporter(void *userData);
 #endif /* defined(OMR_PORT_ASYNC_HANDLER) */
 
@@ -807,7 +814,7 @@ countInfoInCategory(struct OMRPortLibrary *portLibrary, void *info, uint32_t cat
  * @return void
  */
 static void
-runHandlers(uint32_t asyncSignalFlag, int unixSignal)
+runHandlers(OMRPortLibrary *portLibrary, uint32_t asyncSignalFlag, int unixSignal, OMRUnixSignalInfo *sigInfo)
 {
 	OMRUnixAsyncHandlerRecord *cursor = asyncHandlerList;
 
@@ -821,10 +828,11 @@ runHandlers(uint32_t asyncSignalFlag, int unixSignal)
 	while (NULL != cursor) {
 		if (OMR_ARE_ALL_BITS_SET(cursor->flags, asyncSignalFlag)) {
 			Trc_PRT_signal_omrsig_asynchSignalReporter_calling_handler(cursor->portLib, asyncSignalFlag, cursor->handler_arg);
-			cursor->handler(cursor->portLib, asyncSignalFlag, NULL, cursor->handler_arg);
+			cursor->handler(cursor->portLib, asyncSignalFlag, sigInfo, cursor->handler_arg);
 		}
 		cursor = cursor->next;
 	}
+	portLibrary->mem_free_memory(portLibrary, sigInfo);
 
 	omrthread_monitor_enter(asyncMonitor);
 	if (--asyncThreadCount == 0) {
@@ -848,6 +856,7 @@ runHandlers(uint32_t asyncSignalFlag, int unixSignal)
 static int J9THREAD_PROC
 asynchSignalReporter(void *userData)
 {
+	OMRPortLibrary *portLibrary = userData;
 #if defined(J9ZOS390)
 	/*
 	 * CMVC 192198
@@ -890,11 +899,28 @@ asynchSignalReporter(void *userData)
 
 		/* determine which signal we've been woken up for */
 		for (unixSignal = 1; unixSignal < ARRAY_SIZE_SIGNALS; unixSignal++) {
+			OMRUnixSignalInfo *platSigInfo = NULL;
 			uintptr_t signalCount = signalCounts[unixSignal];
 
 			if (signalCount > 0) {
+				uintptr_t head = signalPidHeads[unixSignal];
+				uintptr_t nextHead = (head + 1) % NUM_SIGNAL_PIDS;
+				uintptr_t tail = signalPidTails[unixSignal];
+				if (head != tail) {
+					size_t allocSize = sizeof(*platSigInfo) + sizeof(*platSigInfo->sigInfo);
+					pid_t siPid = signalPids[unixSignal][head];
+					signalPidHeads[unixSignal] = nextHead;
+					fprintf(stderr, "si_pid %d head %" PRIuPTR " tail %" PRIuPTR "\n", siPid, head, tail);
+					platSigInfo = portLibrary->mem_allocate_memory(portLibrary, allocSize, OMR_GET_CALLSITE(), OMRMEM_CATEGORY_PORT_LIBRARY);
+					if (NULL != platSigInfo) {
+						memset(platSigInfo, 0, allocSize);
+						platSigInfo->sigInfo = (siginfo_t *)(platSigInfo + 1);
+						platSigInfo->sigInfo->si_pid = siPid;
+					}
+				}
+
 				asyncSignalFlag = mapOSSignalToPortLib(unixSignal, NULL);
-				runHandlers(asyncSignalFlag, unixSignal);
+				runHandlers(portLibrary, asyncSignalFlag, unixSignal, platSigInfo);
 				subtractAtomic(&signalCounts[unixSignal], 1);
 #if defined(J9ZOS390)
 				/* Before waiting on the condvar, we need to make sure all
@@ -1227,6 +1253,21 @@ static void
 mainASynchSignalHandler(int signal, siginfo_t *sigInfo, void *contextInfo)
 #endif /* defined(S390) && defined(LINUX) */
 {
+	do {
+		uintptr_t tail = signalPidTails[signal];
+		uintptr_t nextTail = (tail + 1) % NUM_SIGNAL_PIDS;
+		uintptr_t head = signalPidHeads[signal];
+		/* Check if there is room. */
+		if (nextTail != head) {
+			if (tail == compareAndSwapUDATA((uintptr_t *)&signalPidTails[signal], tail, nextTail)) {
+				signalPids[signal][tail] = sigInfo->si_pid;
+				break;
+			}
+		} else {
+			break;
+		}
+	} while(TRUE);
+
 	addAtomic(&signalCounts[signal], 1);
 #if !defined(J9ZOS390)
 	SIGSEM_POST(wakeUpASyncReporter);
@@ -1627,7 +1668,7 @@ initializeSignalTools(OMRPortLibrary *portLibrary)
 			J9THREAD_PRIORITY_MAX,
 			0,
 			&asynchSignalReporter,
-			NULL,
+			portLibrary,
 			J9THREAD_CATEGORY_SYSTEM_THREAD)
 	) {
 		return OMRPORT_ERROR_STARTUP_SIGNAL_TOOLS10;
